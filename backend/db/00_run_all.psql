@@ -1,0 +1,44 @@
+-- ============================================================
+-- 00_run_all.psql
+-- Ejecuta todo de forma automatica con psql
+-- ============================================================
+
+\set ON_ERROR_STOP on
+
+-- 1) Crear base de datos si no existe
+\i 01_create_database.sql
+
+-- 2) Conectarse a la nueva base
+\connect cosmetica_sistema
+
+BEGIN;
+
+-- 3) Crear esquema y 4) cargar datos
+\i 02_schema.sql
+\i 03_seed.sql
+\i 04_migracion_pago_cu09.sql
+\i 05_migracion_rol_cliente.sql
+\i 07_migracion_descripcion_usuario.sql
+\i 08_migracion_pedidos_guardados.sql
+\i 09_migracion_pago_transacciones.sql
+\i 10_migracion_backfill_clientes_usuario.sql
+
+COMMIT;
+
+-- 5) Validaciones rapidas
+SELECT 'roles' AS tabla, COUNT(*) AS total FROM roles
+UNION ALL SELECT 'categorias', COUNT(*) FROM categorias
+UNION ALL SELECT 'marcas', COUNT(*) FROM marcas
+UNION ALL SELECT 'usuarios', COUNT(*) FROM usuarios
+UNION ALL SELECT 'clientes', COUNT(*) FROM clientes
+UNION ALL SELECT 'proveedores', COUNT(*) FROM proveedores
+UNION ALL SELECT 'productos', COUNT(*) FROM productos
+UNION ALL SELECT 'inventario', COUNT(*) FROM inventario
+UNION ALL SELECT 'movimientos_inventario', COUNT(*) FROM movimientos_inventario
+UNION ALL SELECT 'compras', COUNT(*) FROM compras
+UNION ALL SELECT 'detalles_compra', COUNT(*) FROM detalles_compra
+UNION ALL SELECT 'ventas', COUNT(*) FROM ventas
+UNION ALL SELECT 'detalles_venta', COUNT(*) FROM detalles_venta
+UNION ALL SELECT 'envios', COUNT(*) FROM envios
+UNION ALL SELECT 'bitacora', COUNT(*) FROM bitacora
+ORDER BY tabla;

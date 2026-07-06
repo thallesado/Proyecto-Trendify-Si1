@@ -1,0 +1,71 @@
+# --- Secretos y despliegue local ---
+.deploy.local
+.env
+.env.local
+.env.*.local
+*.env.production.real
+
+# --- Python / Django ---
+backend/.venv/
+.venv/
+**/__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+backend/staticfiles/
+*.egg-info/
+.eggs/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.sqlite3
+db.sqlite3
+
+# --- Node / Vite / frontend ---
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+.npm/
+*.tsbuildinfo
+
+# Cache de Vite en la raíz (si se genera al correr desde otro cwd)
+.vite/
+
+# --- Herramientas locales (binarios, logs) ---
+.tools/
+
+# --- Docker (solo archivos sueltos; los volúmenes no van al repo) ---
+docker-compose.override.yml
+*.log
+
+# --- IDE y editores ---
+.vscode/
+.idea/
+*.swp
+*~
+.project
+.classpath
+.settings/
+
+# --- Sistema operativo ---
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+
+# --- Cursor / asistentes (solo en tu máquina) ---
+.cursor/
+CLAUDE.md
+.claude/
+
+# --- Logs genéricos ---
+logs/
+*.log
+docs/
+scripts/

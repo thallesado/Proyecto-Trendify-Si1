@@ -1,0 +1,14 @@
+
+gunicorn
+whitenoise
+dj-database-url
+psycopg2-binary
+python-bidi<0.5
+svglib<1.6
+xhtml2pdf
+django
+djangorestframework
+PyJWT
+django-cors-headers
+stripe
+google-genai

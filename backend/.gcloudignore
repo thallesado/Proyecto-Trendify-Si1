@@ -1,0 +1,38 @@
+# Excluye archivos del upload a Cloud Build cuando se usa `gcloud run deploy --source .`
+
+.git
+.gitignore
+
+# Python local
+.venv
+venv
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+
+# IDE
+.vscode
+.idea
+
+# Local env
+.env
+.env.local
+
+# Tests/scripts no necesarios en runtime
+scripts/__pycache__
+
+# Static collectado durante build (se vuelve a generar)
+staticfiles
+
+# DB local
+db.sqlite3
+
+# Archivos de docs/ejemplo
+*.md
+.env.production.example
+
+# Archivado
+archive_legacy
+patch_views.py
+update_tienda.py
