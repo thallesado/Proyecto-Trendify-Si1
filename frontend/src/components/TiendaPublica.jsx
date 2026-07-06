@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Star } from 'lucide-react';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import Login from './Login';
@@ -67,12 +68,15 @@ export default function TiendaPublica({ onAccesoPersonal, user, logout, isAuthen
   const [categorias, setCategorias] = useState([]);
   const [marcas, setMarcas] = useState([]);
   const [productos, setProductos] = useState([]);
+  const [favoritoIds, setFavoritoIds] = useState(() => new Set());
+  const [cargandoFavoritos, setCargandoFavoritos] = useState(false);
   const [filtroCategoria, setFiltroCategoria] = useState('all');
   const [filtroMarca, setFiltroMarca] = useState('all');
   const [precioMin, setPrecioMin] = useState('');
   const [precioMax, setPrecioMax] = useState('');
   const [busqueda, setBusqueda] = useState('');
   const [ordenCatalogo, setOrdenCatalogo] = useState('nombre_asc');
+  const favoritosRef = useRef(null);
 
   const [loadingCatalogo, setLoadingCatalogo] = useState(true);
   const [errorCatalogo, setErrorCatalogo] = useState('');
@@ -175,6 +179,10 @@ export default function TiendaPublica({ onAccesoPersonal, user, logout, isAuthen
     [carrito]
   );
 
+  const productosFavoritos = useMemo(() => {
+    return productos.filter((producto) => favoritoIds.has(Number(producto.id_producto ?? producto.id)));
+  }, [productos, favoritoIds]);
+
   const productosFiltrados = useMemo(() => {
     return [...productos].sort((a, b) => {
       const nombreA = String(a.nombre || '');
@@ -223,17 +231,16 @@ export default function TiendaPublica({ onAccesoPersonal, user, logout, isAuthen
         if (precioMin !== '') params.precio_min = precioMin;
         if (precioMax !== '') params.precio_max = precioMax;
 
-        const [resCategorias, resMarcas, resProductos, resFavoritos] = await Promise.all([
+        const [resCategorias, resMarcas, resProductos] = await Promise.all([
           api.get(PUBLIC_CATEGORIAS_URL),
           api.get(PUBLIC_MARCAS_URL),
           api.get(PUBLIC_PRODUCTOS_URL, { params }),
-          api.get(MIS_FAVORITOS_URL),
         ]);
-        console.log('Favoritos cargados:', resFavoritos.data);
         if (!active) return;
         setCategorias(normalizeList(resCategorias.data));
         setMarcas(normalizeList(resMarcas.data));
         setProductos(normalizeList(resProductos.data));
+
       } catch (error) {
         if (active) setErrorCatalogo('No se pudo cargar la tienda. Verifica backend.');
       } finally {
@@ -247,6 +254,14 @@ export default function TiendaPublica({ onAccesoPersonal, user, logout, isAuthen
     };
   }, [filtroCategoria, filtroMarca, busqueda, precioMin, precioMax]);
   
+  useEffect(() => {
+    if (!isClienteAutenticado) {
+      setFavoritoIds(new Set());
+      return;
+    }
+    cargarFavoritos();
+  }, [isClienteAutenticado]);
+
   useEffect(() => {
     if (!isClienteAutenticado) return;
 
@@ -280,6 +295,64 @@ export default function TiendaPublica({ onAccesoPersonal, user, logout, isAuthen
       cargarPedidosGuardados();
     }
   }, [isClienteAutenticado, openCheckout]);
+
+  const cargarFavoritos = async () => {
+    setCargandoFavoritos(true);
+    try {
+      const res = await api.get(MIS_FAVORITOS_URL);
+      const ids = normalizeList(res.data)
+        .map((favorito) => Number(favorito.id_producto?.id_producto ?? favorito.id_producto))
+        .filter(Number.isFinite);
+      setFavoritoIds(new Set(ids));
+    } catch (error) {
+      console.warn('No se pudieron cargar los favoritos:', error);
+      setFavoritoIds(new Set());
+    } finally {
+      setCargandoFavoritos(false);
+    }
+  };
+
+  const scrollToFavoritos = () => {
+    favoritosRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setMenuAbierto(false);
+  };
+
+  const toggleFavorito = async (producto) => {
+    if (!isClienteAutenticado) {
+      mostrarToast('Inicia sesion como cliente para guardar favoritos');
+      setMostrarLogin(true);
+      return;
+    }
+
+    const idProducto = Number(producto.id_producto ?? producto.id);
+    if (!Number.isFinite(idProducto)) return;
+
+    const yaEsFavorito = favoritoIds.has(idProducto);
+    setFavoritoIds((prev) => {
+      const next = new Set(prev);
+      if (yaEsFavorito) next.delete(idProducto);
+      else next.add(idProducto);
+      return next;
+    });
+
+    try {
+      if (yaEsFavorito) {
+        await api.delete(MIS_FAVORITOS_URL, { data: { id_producto: idProducto } });
+        mostrarToast('Producto quitado de favoritos');
+      } else {
+        await api.post(MIS_FAVORITOS_URL, { id_producto: idProducto });
+        mostrarToast('Producto agregado a favoritos');
+      }
+    } catch (error) {
+      setFavoritoIds((prev) => {
+        const next = new Set(prev);
+        if (yaEsFavorito) next.add(idProducto);
+        else next.delete(idProducto);
+        return next;
+      });
+      mostrarToast(error?.response?.data?.detail || 'No se pudo actualizar favoritos');
+    }
+  };
 
   const cargarMisPedidos = async () => {
       setCargandoPedidos(true);
@@ -601,8 +674,11 @@ export default function TiendaPublica({ onAccesoPersonal, user, logout, isAuthen
           </div>
           
           <div className="flex sm:hidden mt-2 ml-auto gap-2">
+            <button onClick={scrollToFavoritos} className="relative rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800">
+              ★ ({favoritoIds.size})
+            </button>
             <button onClick={openCartDrawer} className="relative rounded-full bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white">
-              ❤ ({itemsCount})
+              Carrito ({itemsCount})
             </button>
             <button onClick={() => setMenuAbierto(!menuAbierto)} className="rounded-full border border-slate-300 px-3 py-1.5 text-xs font-semibold">⚡ Menu</button>
           </div>
@@ -630,6 +706,10 @@ export default function TiendaPublica({ onAccesoPersonal, user, logout, isAuthen
                 </>
             )}
 
+            <button type="button" onClick={scrollToFavoritos} className="hidden sm:inline-flex relative rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-800 transition hover:bg-amber-100">
+              Favoritos
+              <span className="absolute -right-2 -top-2 inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-amber-400 px-1 text-xs font-bold text-slate-900">{favoritoIds.size}</span>
+            </button>
             <button type="button" onClick={openCartDrawer} className="hidden sm:inline-flex relative rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800">
               Carrito
               <span className="absolute -right-2 -top-2 inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-fuchsia-500 px-1 text-xs font-bold text-white">{itemsCount}</span>
@@ -804,7 +884,22 @@ export default function TiendaPublica({ onAccesoPersonal, user, logout, isAuthen
         ) : (
           <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
             {productosFiltrados.map((producto) => (
-                <article key={producto.id_producto} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg flex flex-row sm:flex-col items-center sm:items-stretch">
+                <article key={producto.id_producto} className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg flex flex-row sm:flex-col items-center sm:items-stretch">
+                  <button
+                    type="button"
+                    onClick={(event) => { event.stopPropagation(); toggleFavorito(producto); }}
+                    className={`absolute right-3 top-3 z-10 inline-flex h-10 w-10 items-center justify-center text-amber-400 drop-shadow-[0_2px_6px_rgba(15,23,42,0.35)] transition hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 ${favoritoIds.has(Number(producto.id_producto ?? producto.id)) ? 'text-amber-400' : 'text-white hover:text-amber-300'}`}
+                    aria-pressed={favoritoIds.has(Number(producto.id_producto ?? producto.id))}
+                    aria-label={favoritoIds.has(Number(producto.id_producto ?? producto.id)) ? 'Quitar de favoritos' : 'Agregar a favoritos'}
+                    title={favoritoIds.has(Number(producto.id_producto ?? producto.id)) ? 'Quitar de favoritos' : 'Agregar a favoritos'}
+                  >
+                    <Star
+                      size={34}
+                      strokeWidth={2.4}
+                      fill={favoritoIds.has(Number(producto.id_producto ?? producto.id)) ? 'currentColor' : 'rgba(255,255,255,0.72)'}
+                      className="text-[34px] transition"
+                    />
+                  </button>
                   <button
                     type="button"
                     onClick={() => setProductoDetalle(producto)}
@@ -845,6 +940,53 @@ export default function TiendaPublica({ onAccesoPersonal, user, logout, isAuthen
           </div>
         )
         )}
+
+        <section ref={favoritosRef} className="scroll-mt-28 rounded-3xl border border-amber-200 bg-white/90 p-5 shadow-sm sm:p-6">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-xs uppercase tracking-[0.22em] text-amber-600">Seleccion del cliente</p>
+              <h3 className="mt-1 text-2xl font-black text-slate-900">Mis Favoritos</h3>
+            </div>
+            <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-800">{favoritoIds.size} producto(s)</span>
+          </div>
+
+          {!isClienteAutenticado ? (
+            <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-5 py-8 text-center">
+              <p className="text-sm font-bold text-slate-700">Inicia sesion como cliente para guardar tus productos favoritos.</p>
+              <button type="button" onClick={() => setMostrarLogin(true)} className="mt-4 rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800">Iniciar sesion</button>
+            </div>
+          ) : cargandoFavoritos ? (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-28 animate-pulse rounded-2xl bg-amber-50" />)}
+            </div>
+          ) : productosFavoritos.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-amber-200 bg-amber-50/70 px-5 py-8 text-center">
+              <p className="text-sm font-bold text-slate-700">Todavia no tienes productos favoritos.</p>
+              <p className="mt-1 text-sm text-slate-500">Presiona la estrella de un producto para guardarlo aqui.</p>
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {productosFavoritos.map((producto) => (
+                <article key={producto.id_producto} className="flex gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+                  <ProductoImagen
+                    idProducto={producto.id_producto}
+                    nombre={producto.nombre}
+                    imagenSrc={producto.atributos?.imagen_data_uri}
+                    className="h-20 w-20 shrink-0 rounded-xl border border-slate-200"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <h4 className="line-clamp-2 text-sm font-black text-slate-900">{producto.nombre}</h4>
+                    <p className="mt-1 text-sm font-bold text-slate-700">{currency(producto.precio_venta)}</p>
+                    <div className="mt-3 flex gap-2">
+                      <button type="button" onClick={() => addToCart(producto)} className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white hover:bg-slate-800">Comprar</button>
+                      <button type="button" onClick={() => toggleFavorito(producto)} className="rounded-lg border border-amber-200 px-3 py-2 text-xs font-bold text-amber-700 hover:bg-amber-50">Quitar</button>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
       </main>
 
       {/* MODAL MIS PEDIDOS */}

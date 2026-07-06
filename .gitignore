@@ -39,6 +39,10 @@ frontend/.vite/
 
 # --- Herramientas locales (binarios, logs) ---
 .tools/
+tools/
+
+# --- Backups locales de base de datos ---
+*.dump
 
 # --- Docker (solo archivos sueltos; los volúmenes no van al repo) ---
 docker-compose.override.yml

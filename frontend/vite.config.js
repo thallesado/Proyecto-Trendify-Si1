@@ -21,5 +21,11 @@ export default defineConfig(({ mode }) => {
         },
       },
     },
+    preview: {
+      host: true,
+      allowedHosts: [
+        'trendify-favoritos-frontend-498827330256.southamerica-east1.run.app',
+      ],
+    },
   };
 });
