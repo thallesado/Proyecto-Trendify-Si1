@@ -10,6 +10,7 @@ import UserAvatar from './UserAvatar';
 import { buildReciboUrl, sanitizeTelefono } from '../utils/formHelpers';
 
 const PUBLIC_PRODUCTOS_URL = '/api/public/productos/';
+const PUBLIC_PRODUCTOS_POPULARES_URL = '/api/public/productos-populares/';
 const PUBLIC_CATEGORIAS_URL = '/api/public/categorias/';
 const PUBLIC_MARCAS_URL = '/api/public/marcas/';
 const PUBLIC_CHECKOUT_URL = '/api/public/checkout/';
@@ -68,6 +69,8 @@ export default function TiendaPublica({ onAccesoPersonal, user, logout, isAuthen
   const [categorias, setCategorias] = useState([]);
   const [marcas, setMarcas] = useState([]);
   const [productos, setProductos] = useState([]);
+  const [productosPopulares, setProductosPopulares] = useState([]);
+  const [cargandoPopulares, setCargandoPopulares] = useState(false);
   const [favoritoIds, setFavoritoIds] = useState(() => new Set());
   const [cargandoFavoritos, setCargandoFavoritos] = useState(false);
   const [filtroCategoria, setFiltroCategoria] = useState('all');
@@ -253,6 +256,10 @@ export default function TiendaPublica({ onAccesoPersonal, user, logout, isAuthen
       clearTimeout(timer);
     };
   }, [filtroCategoria, filtroMarca, busqueda, precioMin, precioMax]);
+
+  useEffect(() => {
+    cargarProductosPopulares();
+  }, []);
   
   useEffect(() => {
     if (!isClienteAutenticado) {
@@ -312,6 +319,19 @@ export default function TiendaPublica({ onAccesoPersonal, user, logout, isAuthen
     }
   };
 
+  const cargarProductosPopulares = async () => {
+    setCargandoPopulares(true);
+    try {
+      const { data } = await api.get(PUBLIC_PRODUCTOS_POPULARES_URL);
+      setProductosPopulares(normalizeList(data));
+    } catch (error) {
+      console.warn('No se pudieron cargar los productos populares:', error);
+      setProductosPopulares([]);
+    } finally {
+      setCargandoPopulares(false);
+    }
+  };
+
   const scrollToFavoritos = () => {
     favoritosRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     setMenuAbierto(false);
@@ -343,6 +363,7 @@ export default function TiendaPublica({ onAccesoPersonal, user, logout, isAuthen
         await api.post(MIS_FAVORITOS_URL, { id_producto: idProducto });
         mostrarToast('Producto agregado a favoritos');
       }
+      cargarProductosPopulares();
     } catch (error) {
       setFavoritoIds((prev) => {
         const next = new Set(prev);
@@ -940,6 +961,63 @@ export default function TiendaPublica({ onAccesoPersonal, user, logout, isAuthen
           </div>
         )
         )}
+
+        <section className="rounded-3xl border border-slate-200 bg-white/95 p-5 shadow-sm sm:p-6">
+          <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <p className="text-xs uppercase tracking-[0.22em] text-fuchsia-600">Ranking por favoritos</p>
+              <h3 className="mt-1 text-2xl font-black text-slate-900">Productos mas vendidos</h3>
+            </div>
+            <span className="rounded-full bg-slate-900 px-3 py-1 text-xs font-black text-white">Top 10</span>
+          </div>
+
+          {cargandoPopulares ? (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="h-48 animate-pulse rounded-2xl bg-slate-100" />
+              ))}
+            </div>
+          ) : productosPopulares.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-5 py-8 text-center">
+              <p className="text-sm font-bold text-slate-700">Todavia no hay productos populares.</p>
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+              {productosPopulares.map((producto, index) => (
+                <article key={producto.id_producto} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                  <button
+                    type="button"
+                    onClick={() => setProductoDetalle(producto)}
+                    className="relative block w-full text-left"
+                  >
+                    <span className="absolute left-3 top-3 z-10 inline-flex h-8 min-w-8 items-center justify-center rounded-full bg-slate-900 px-2 text-xs font-black text-white shadow">
+                      #{index + 1}
+                    </span>
+                    <ProductoImagen
+                      idProducto={producto.id_producto}
+                      nombre={producto.nombre}
+                      imagenSrc={producto.atributos?.imagen_data_uri}
+                      className="h-36 w-full"
+                    />
+                  </button>
+                  <div className="p-4">
+                    <p className="text-[11px] font-black uppercase tracking-wider text-fuchsia-600">{producto.categoria_nombre}</p>
+                    <button type="button" onClick={() => setProductoDetalle(producto)} className="mt-1 text-left">
+                      <h4 className="line-clamp-2 text-sm font-black text-slate-900 hover:text-fuchsia-700">{producto.nombre}</h4>
+                    </button>
+                    <div className="mt-3 flex items-center justify-between gap-2">
+                      <p className="text-sm font-black text-slate-900">{currency(producto.precio_venta)}</p>
+                      <span className="rounded-full bg-amber-100 px-2 py-1 text-[11px] font-black text-amber-800">
+                        {Number(producto.favoritos_count || 0)} fav
+                      </span>
+                    </div>
+                    <button type="button" onClick={() => addToCart(producto)} className="mt-3 w-full rounded-xl bg-slate-900 px-3 py-2 text-xs font-bold text-white transition hover:bg-slate-800">Comprar</button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
 
         <section ref={favoritosRef} className="scroll-mt-28 rounded-3xl border border-amber-200 bg-white/90 p-5 shadow-sm sm:p-6">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">

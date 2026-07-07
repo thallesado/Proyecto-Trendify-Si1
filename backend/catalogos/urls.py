@@ -18,6 +18,7 @@ from .views import (
     PedidoGuardadoDetalleView,
     PedidosGuardadosView,
     ProductoPublicoViewSet,
+    ProductoPopularViewSet,
     ProductoViewSet,
     ProveedorViewSet,
     ReciboVentaView,
@@ -48,6 +49,7 @@ public_router = DefaultRouter()
 public_router.register(r'categorias', CategoriaPublicaViewSet, basename='categoria-publica')
 public_router.register(r'marcas', MarcaPublicaViewSet, basename='marca-publica')
 public_router.register(r'productos', ProductoPublicoViewSet, basename='producto-publico')
+public_router.register(r'productos-populares', ProductoPopularViewSet, basename='producto-popular')
 
 router.register(r'reportes', ReportesViewSet, basename='reportes')
 

@@ -149,6 +149,17 @@ class ProductoPublicoSerializer(serializers.ModelSerializer):
             'stock_actual',
         ]
 
+
+class ProductoPopularSerializer(ProductoPublicoSerializer):
+    """Ranking publico alimentado por favoritos, sin exponer usuarios."""
+    favoritos_count = serializers.IntegerField(read_only=True)
+
+    class Meta(ProductoPublicoSerializer.Meta):
+        fields = ProductoPublicoSerializer.Meta.fields + [
+            'favoritos_count',
+        ]
+
+
 class FavoritoDetalleSerializer(serializers.ModelSerializer):
     class Meta:
         model = Favorito

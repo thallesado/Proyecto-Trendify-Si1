@@ -5,7 +5,7 @@ from io import BytesIO
 from urllib.parse import urlencode
 
 from django.db import transaction
-from django.db.models import Q, OuterRef, Subquery, IntegerField
+from django.db.models import Count, Q, OuterRef, Subquery, IntegerField
 from django.db.models.functions import Coalesce
 from django.db.utils import OperationalError, ProgrammingError
 from django.http import HttpResponse, Http404
@@ -55,6 +55,7 @@ from .serializers import (
     MovimientoInventarioSerializer,
     PedidoGuardadoSerializer,
     ProductoPublicoSerializer,
+    ProductoPopularSerializer,
     ProductoSerializer,
     ProveedorSerializer,
     RolSerializer,
@@ -710,6 +711,32 @@ class ProductoPublicoViewSet(viewsets.ReadOnlyModelViewSet):
                 pass
 
         return qs
+
+
+class ProductoPopularViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class = ProductoPopularSerializer
+    permission_classes = [AllowAny]
+    pagination_class = None
+
+    def get_queryset(self):
+        stock_subquery = Inventario.objects.filter(
+            id_producto=OuterRef('pk')
+        ).values('stock_actual')[:1]
+
+        return (
+            Producto.objects
+            .select_related('id_categoria', 'id_marca')
+            .filter(estado__iexact='activo')
+            .annotate(
+                stock_actual=Coalesce(
+                    Subquery(stock_subquery, output_field=IntegerField()),
+                    0,
+                ),
+                favoritos_count=Count('favoritos'),
+            )
+            .filter(stock_actual__gt=0, favoritos_count__gt=0)
+            .order_by('-favoritos_count', 'nombre')[:10]
+        )
 
 
 class InventarioViewSet(BitacoraMixin, viewsets.ModelViewSet):
